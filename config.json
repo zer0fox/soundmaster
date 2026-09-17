@@ -1,0 +1,17 @@
+{
+  "settings": {
+    "play_beep_feedback": true
+  },
+  "hotkeys": [
+    {
+      "key": "0",
+      "process": "brave.exe",
+      "description": "Brave Browser"
+    },
+    {
+      "key": "9",
+      "process": "focused",
+      "description": "Current Focused Game/Window"
+    }
+  ]
+}
