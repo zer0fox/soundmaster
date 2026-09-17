@@ -1,3 +1,4 @@
 pycaw>=20240210
 comtypes>=1.4.0
 keyboard>=0.13.5
+pillow>=10.0.0
