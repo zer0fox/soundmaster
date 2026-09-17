@@ -92,6 +92,69 @@ def toggle_app_mute(app_target: str) -> tuple[bool | None, int, str]:
         comtypes.CoUninitialize()
 
 
+def toggle_media_play_pause(app_target: str = "brave.exe") -> tuple[bool, str]:
+    """
+    Toggles play/pause for media playback.
+    First tries to send WM_APPCOMMAND (APPCOMMAND_MEDIA_PLAY_PAUSE) directly to the target application's window(s).
+    If no matching window is found or app_target is not specified, sends a global VK_MEDIA_PLAY_PAUSE key event.
+
+    Returns:
+        (success: bool, status_message: str)
+    """
+    target_lower = (app_target or "").lower().strip()
+    is_focused_mode = target_lower in ("focused", "current", "active", "foreground")
+    
+    WM_APPCOMMAND = 0x0319
+    APPCOMMAND_MEDIA_PLAY_PAUSE = 14
+    lParam = (APPCOMMAND_MEDIA_PLAY_PAUSE << 16)
+
+    target_pid = None
+    target_proc_name = None
+
+    if is_focused_mode:
+        target_pid, target_proc_name = get_foreground_process()
+        resolved_name = target_proc_name or (f"PID:{target_pid}" if target_pid else "Active Window")
+    else:
+        if target_lower and not target_lower.endswith(".exe"):
+            target_lower += ".exe"
+        resolved_name = target_lower or "Media"
+
+    hwnds = []
+    if target_lower:
+        def enum_cb(hwnd, extra):
+            if ctypes.windll.user32.IsWindowVisible(hwnd):
+                pid = ctypes.c_ulong()
+                ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value:
+                    try:
+                        proc = psutil.Process(pid.value)
+                        pname = proc.name().lower()
+                        if is_focused_mode:
+                            if (target_pid and pid.value == target_pid) or (target_proc_name and pname == target_proc_name.lower()):
+                                hwnds.append(hwnd)
+                        else:
+                            if pname == target_lower:
+                                hwnds.append(hwnd)
+                    except Exception:
+                        pass
+            return True
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        ctypes.windll.user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+
+    if hwnds:
+        for hwnd in hwnds:
+            ctypes.windll.user32.PostMessageW(hwnd, WM_APPCOMMAND, hwnd, lParam)
+        return True, f"Sent Play/Pause to {resolved_name} ({len(hwnds)} window(s))"
+    else:
+        # Fallback to standard Windows multimedia Play/Pause key event
+        VK_MEDIA_PLAY_PAUSE = 0xB3
+        KEYEVENTF_KEYUP = 0x0002
+        ctypes.windll.user32.keybd_event(VK_MEDIA_PLAY_PAUSE, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_MEDIA_PLAY_PAUSE, 0, KEYEVENTF_KEYUP, 0)
+        return True, f"Sent Global Media Play/Pause ({resolved_name})"
+
+
 def list_active_audio_apps() -> list[str]:
     """Returns a list of unique process names currently having active audio sessions."""
     comtypes.CoInitialize()
@@ -104,3 +167,4 @@ def list_active_audio_apps() -> list[str]:
         return sorted(list(apps))
     finally:
         comtypes.CoUninitialize()
+

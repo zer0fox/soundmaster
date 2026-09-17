@@ -4,14 +4,22 @@
   },
   "hotkeys": [
     {
-      "key": "0",
+      "key": "8",
+      "action": "play_pause",
       "process": "brave.exe",
-      "description": "Brave Browser"
+      "description": "Brave Browser Media (Play/Pause)"
+    },
+    {
+      "key": "0",
+      "action": "mute",
+      "process": "brave.exe",
+      "description": "Brave Browser (Mute/Unmute)"
     },
     {
       "key": "9",
+      "action": "mute",
       "process": "focused",
-      "description": "Current Focused Game/Window"
+      "description": "Current Focused Game/Window (Mute/Unmute)"
     }
   ]
 }
