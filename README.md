@@ -91,6 +91,25 @@ Edit `config.json` to map keys to applications and actions:
 
 ---
 
+## ⌨️ Suggested Keypad Mapping (Wooting UwU / 6-Button Macropad)
+
+If you are using a mini 6-button keypad (such as the **Wooting UwU**), here is an optimal suggested layout mapped directly to the default `config.json` numpad keys:
+
+![Wooting UwU Key Mapping](Wooting%20UwU%20Key%20Mapping.png)
+
+### Layout Overview:
+
+| Position | Button / Key | Action | Function |
+| :--- | :--- | :--- | :--- |
+| **Top Left** | `num 7` | `play_pause` (`brave.exe`) | **Toggle Pause / Play YouTube** in Browser |
+| **Top Middle** | `num 8` | `play_pause_and_mute` (`focused`) | **Toggle Unmute Game & Pause YouTube** (One-touch switch) |
+| **Top Right** | `num 9` | `mute` (`focused`) | **Toggle Mute / Unmute Game** |
+| **Bottom Left** | `num -` | `volume_down` (`focused`) | **Volume -** (Decrease volume by 10%) |
+| **Bottom Middle** | `num *` | `toggle_volume_target` | **Toggle Target** (Switch volume control between Game and Browser) |
+| **Bottom Right** | `num +` | `volume_up` (`focused`) | **Volume +** (Increase volume by 10%) |
+
+---
+
 ## 🔍 How to Find an App's Process Name
 
 Run the scanner tool to see all processes currently registered with the Windows audio mixer:
