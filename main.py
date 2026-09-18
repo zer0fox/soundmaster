@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import winsound
+import threading
 import keyboard
 from audio_controller import (
     toggle_app_mute,
@@ -13,7 +14,7 @@ from audio_controller import (
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
-# Runtime state for dynamic target switching (e.g. key 6 toggles volume between focused game & Brave)
+# Runtime state for dynamic target switching (e.g. key num * toggles volume between focused game & Brave)
 current_volume_target = "focused"
 current_target_index = 0
 
@@ -39,30 +40,71 @@ NUMPAD_SCAN_CODES = {
     "num enter": 28, "num_enter": 28, "numpad enter": 28, "numpad_enter": 28, "keypad enter": 28, "keypadenter": 28,
 }
 
+numpad_bindings = []
+hook_initialized = False
 
-def resolve_hotkey(hotkey_spec):
-    """
-    Resolves hotkey specifications to hardware scan codes when numpad keys are targeted.
-    This prevents standard number / symbol keys on the main keyboard from triggering
-    numpad-specific hotkeys.
-    """
-    if isinstance(hotkey_spec, int):
-        return hotkey_spec
 
-    key_str = str(hotkey_spec).strip()
+def register_hotkey(key_spec, callback, args=()):
+    """
+    Registers a hotkey.
+    For numpad keys, uses low-level event inspection to ensure the event genuinely
+    originated from the physical keypad (is_keypad == True), completely avoiding
+    conflicts with arrow keys (e.g. Up arrow sharing scan code 72 with Num 8) or main keys.
+    """
+    global hook_initialized
+    key_str = str(key_spec).strip()
     norm = key_str.lower()
 
     if norm in NUMPAD_SCAN_CODES:
-        return NUMPAD_SCAN_CODES[norm]
+        target_sc = NUMPAD_SCAN_CODES[norm]
+        numpad_bindings.append({
+            "scan_code": target_sc,
+            "modifiers": [],
+            "callback": callback,
+            "args": args
+        })
+        if not hook_initialized:
+            keyboard.hook(on_keyboard_event)
+            hook_initialized = True
+        return
 
-    # Handle modifier combinations like 'ctrl+num 8' or 'alt+numpad +'
+    # Handle modifier combinations with numpad, e.g. 'ctrl+num 8'
     if "+" in key_str and not norm.startswith("num +") and not norm.startswith("numpad +") and not norm.startswith("keypad +") and norm != "+":
         parts = [p.strip() for p in key_str.split("+")]
-        resolved_parts = [NUMPAD_SCAN_CODES.get(p.lower(), p) for p in parts]
-        if any(isinstance(p, int) for p in resolved_parts):
-            return resolved_parts
+        numpad_parts = [p for p in parts if p.lower() in NUMPAD_SCAN_CODES]
+        if len(numpad_parts) == 1:
+            target_sc = NUMPAD_SCAN_CODES[numpad_parts[0].lower()]
+            mod_parts = [p.lower() for p in parts if p not in numpad_parts]
+            numpad_bindings.append({
+                "scan_code": target_sc,
+                "modifiers": mod_parts,
+                "callback": callback,
+                "args": args
+            })
+            if not hook_initialized:
+                keyboard.hook(on_keyboard_event)
+                hook_initialized = True
+            return
 
-    return key_str
+    # For standard non-numpad hotkeys, use keyboard.add_hotkey
+    keyboard.add_hotkey(key_spec, callback, args=args, suppress=False)
+
+
+def on_keyboard_event(event):
+    if event.event_type != keyboard.KEY_DOWN:
+        return
+    # Require is_keypad == True so navigation keys (Up, Down, Home, PgUp, etc.) are ignored
+    if not getattr(event, "is_keypad", False):
+        return
+
+    for binding in numpad_bindings:
+        if event.scan_code == binding["scan_code"]:
+            if binding["modifiers"]:
+                if not all(keyboard.is_pressed(m) for m in binding["modifiers"]):
+                    continue
+            cb = binding["callback"]
+            cb_args = binding["args"]
+            threading.Thread(target=cb, args=cb_args, daemon=True).start()
 
 
 def load_config():
@@ -266,8 +308,6 @@ def main():
         if not key:
             continue
 
-        resolved_key = resolve_hotkey(key)
-
         # Allow per-hotkey override for sound feedback if specified, else use global setting
         play_beep = item.get(
             "play_beep_feedback",
@@ -277,63 +317,56 @@ def main():
         if action in ("toggle_target", "toggle_volume_target", "switch_target", "switch_volume_target"):
             targets = item.get("targets", ["focused", item.get("process", "brave.exe")])
             print(f"  • Key [{key}] -> [Toggle Volume Target] {' <-> '.join(targets)} ({desc})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_toggle_target,
-                args=(targets, desc, play_beep),
-                suppress=False
+                args=(targets, desc, play_beep)
             )
         elif action in ("both", "play_pause_and_mute", "mute_and_play_pause", "play_pause_mute", "mute_play_pause"):
             print(f"  • Key [{key}] -> [Play/Pause & Mute/Unmute] {desc} ({process})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_both,
-                args=(process, desc, play_beep),
-                suppress=False
+                args=(process, desc, play_beep)
             )
         elif action in ("play_pause", "media", "play_pause_media", "media_play_pause"):
             print(f"  • Key [{key}] -> [Play/Pause] {desc} ({process})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_media,
-                args=(process, desc, play_beep),
-                suppress=False
+                args=(process, desc, play_beep)
             )
         elif action in ("volume_down", "vol_down", "volume-", "voldown"):
             step = abs(float(item.get("step", 0.10)))
             print(f"  • Key [{key}] -> [Volume Down -{int(round(step*100))}%] {desc} ({process})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_volume,
-                args=(process, -step, desc, play_beep),
-                suppress=False
+                args=(process, -step, desc, play_beep)
             )
         elif action in ("volume_up", "vol_up", "volume+", "volup"):
             step = abs(float(item.get("step", 0.10)))
             print(f"  • Key [{key}] -> [Volume Up +{int(round(step*100))}%] {desc} ({process})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_volume,
-                args=(process, step, desc, play_beep),
-                suppress=False
+                args=(process, step, desc, play_beep)
             )
         elif action in ("volume", "volume_change"):
             step = float(item.get("step", 0.10))
             direction = f"{'+' if step > 0 else ''}{int(round(step*100))}%"
             print(f"  • Key [{key}] -> [Volume Change {direction}] {desc} ({process})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_volume,
-                args=(process, step, desc, play_beep),
-                suppress=False
+                args=(process, step, desc, play_beep)
             )
         else:
             print(f"  • Key [{key}] -> [Mute/Unmute] {desc} ({process})")
-            keyboard.add_hotkey(
-                resolved_key,
+            register_hotkey(
+                key,
                 on_hotkey_mute,
-                args=(process, desc, play_beep),
-                suppress=False
+                args=(process, desc, play_beep)
             )
 
     print("\n[INFO] SoundMaster is now running in the background.")
