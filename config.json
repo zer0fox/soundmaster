@@ -4,6 +4,12 @@
   },
   "hotkeys": [
     {
+      "key": "7",
+      "action": "play_pause_and_mute",
+      "process": "focused",
+      "description": "Current Focused Game/Window (Play/Pause & Mute/Unmute)"
+    },
+    {
       "key": "8",
       "action": "play_pause",
       "process": "brave.exe",
@@ -20,6 +26,20 @@
       "action": "mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Mute/Unmute)"
+    },
+    {
+      "key": "-",
+      "action": "volume_down",
+      "process": "focused",
+      "step": 0.10,
+      "description": "Current Focused Game (Volume Down 10%)"
+    },
+    {
+      "key": "=",
+      "action": "volume_up",
+      "process": "focused",
+      "step": 0.10,
+      "description": "Current Focused Game (Volume Up 10%)"
     }
   ]
 }

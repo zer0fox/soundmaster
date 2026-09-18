@@ -92,6 +92,71 @@ def toggle_app_mute(app_target: str) -> tuple[bool | None, int, str]:
         comtypes.CoUninitialize()
 
 
+def change_app_volume(app_target: str, delta: float = 0.10) -> tuple[float | None, int, str]:
+    """
+    Adjusts the volume of all audio sessions matching app_target by delta (e.g. +0.10 or -0.10).
+    
+    Returns:
+        (new_volume_level: float | None, matched_sessions_count: int, resolved_process_name: str)
+        new_volume_level is between 0.0 and 1.0 (or None if no session found).
+    """
+    comtypes.CoInitialize()
+    try:
+        target_lower = app_target.lower().strip()
+        is_focused_mode = target_lower in ("focused", "current", "active", "foreground")
+        target_pid = None
+        target_proc_name = None
+
+        if is_focused_mode:
+            target_pid, target_proc_name = get_foreground_process()
+            if not target_pid:
+                return None, 0, "No Active Window"
+            display_name = target_proc_name or f"PID:{target_pid}"
+        else:
+            if not target_lower.endswith(".exe"):
+                target_lower += ".exe"
+            display_name = target_lower
+
+        sessions = AudioUtilities.GetAllSessions()
+        matched_volumes = []
+        resolved_name = display_name
+
+        for session in sessions:
+            volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+            process = session.Process
+
+            matches = False
+            if process:
+                proc_name = process.name().lower()
+                proc_pid = process.pid
+
+                if is_focused_mode:
+                    if (target_pid and proc_pid == target_pid) or (target_proc_name and proc_name == target_proc_name.lower()):
+                        matches = True
+                        resolved_name = process.name()
+                else:
+                    if proc_name == target_lower:
+                        matches = True
+                        resolved_name = process.name()
+
+            if matches:
+                matched_volumes.append(volume)
+
+        if not matched_volumes:
+            return None, 0, resolved_name
+
+        last_vol = 0.0
+        for volume in matched_volumes:
+            current_vol = volume.GetMasterVolume()
+            new_vol = max(0.0, min(1.0, current_vol + delta))
+            volume.SetMasterVolume(round(new_vol, 4), None)
+            last_vol = new_vol
+
+        return last_vol, len(matched_volumes), resolved_name
+    finally:
+        comtypes.CoUninitialize()
+
+
 def toggle_media_play_pause(app_target: str = "brave.exe") -> tuple[bool, str]:
     """
     Toggles play/pause for media playback.

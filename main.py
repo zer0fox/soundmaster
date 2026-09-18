@@ -4,7 +4,12 @@ import json
 import time
 import winsound
 import keyboard
-from audio_controller import toggle_app_mute, toggle_media_play_pause, list_active_audio_apps
+from audio_controller import (
+    toggle_app_mute,
+    toggle_media_play_pause,
+    change_app_volume,
+    list_active_audio_apps
+)
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -18,7 +23,9 @@ def load_config():
             "hotkeys": [
                 {"key": "8", "action": "play_pause", "process": "brave.exe", "description": "Brave Browser Media (Play/Pause)"},
                 {"key": "0", "action": "mute", "process": "brave.exe", "description": "Brave Browser (Mute/Unmute)"},
-                {"key": "9", "action": "mute", "process": "focused", "description": "Current Focused Game/Window (Mute/Unmute)"}
+                {"key": "9", "action": "mute", "process": "focused", "description": "Current Focused Game/Window (Mute/Unmute)"},
+                {"key": "-", "action": "volume_down", "process": "focused", "description": "Current Focused Game (Volume Down 10%)", "step": 0.10},
+                {"key": "=", "action": "volume_up", "process": "focused", "description": "Current Focused Game (Volume Up 10%)", "step": 0.10}
             ]
         }
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -60,6 +67,21 @@ def play_media_feedback(success: bool):
         pass
 
 
+def play_volume_feedback(volume_level: float | None):
+    """Subtle audio beep feedback for volume change indicating relative level."""
+    try:
+        if volume_level is not None:
+            # Frequency scales with volume percentage (0% = 400Hz, 100% = 1000Hz)
+            freq = max(300, min(1200, int(400 + volume_level * 600)))
+            winsound.Beep(freq, 60)
+        else:
+            winsound.Beep(300, 60)
+            time.sleep(0.05)
+            winsound.Beep(300, 60)
+    except Exception:
+        pass
+
+
 def on_hotkey_mute(process_name: str, description: str, play_beep: bool):
     is_muted, count, resolved_name = toggle_app_mute(process_name)
     if is_muted is None:
@@ -79,6 +101,35 @@ def on_hotkey_media(process_name: str, description: str, play_beep: bool):
 
     if play_beep:
         play_media_feedback(success)
+
+
+def on_hotkey_both(process_name: str, description: str, play_beep: bool):
+    success, media_msg = toggle_media_play_pause(process_name)
+    is_muted, count, resolved_name = toggle_app_mute(process_name)
+    if is_muted is None:
+        status = "NOT RUNNING / NO AUDIO DETECTED"
+    else:
+        status = "MUTED" if is_muted else "UNMUTED"
+
+    print(f"[{time.strftime('%H:%M:%S')}] {description} [{resolved_name}]: {media_msg} | {status} ({count} audio stream(s))")
+
+    if play_beep:
+        play_mute_feedback(is_muted)
+
+
+def on_hotkey_volume(process_name: str, delta: float, description: str, play_beep: bool):
+    new_vol, count, resolved_name = change_app_volume(process_name, delta)
+    if new_vol is None:
+        status = "NOT RUNNING / NO AUDIO DETECTED"
+    else:
+        percentage = int(round(new_vol * 100))
+        status = f"VOLUME: {percentage}%"
+
+    direction = f"{'+' if delta > 0 else ''}{int(round(delta * 100))}%"
+    print(f"[{time.strftime('%H:%M:%S')}] {description} [{resolved_name}] ({direction}): {status} ({count} audio stream(s))")
+
+    if play_beep:
+        play_volume_feedback(new_vol)
 
 
 def main():
@@ -110,12 +161,48 @@ def main():
         if not key:
             continue
 
-        if action in ("play_pause", "media", "play_pause_media", "media_play_pause"):
+        if action in ("both", "play_pause_and_mute", "mute_and_play_pause", "play_pause_mute", "mute_play_pause"):
+            print(f"  • Key [{key}] -> [Play/Pause & Mute/Unmute] {desc} ({process})")
+            keyboard.add_hotkey(
+                key,
+                on_hotkey_both,
+                args=(process, desc, play_beep),
+                suppress=False
+            )
+        elif action in ("play_pause", "media", "play_pause_media", "media_play_pause"):
             print(f"  • Key [{key}] -> [Play/Pause] {desc} ({process})")
             keyboard.add_hotkey(
                 key,
                 on_hotkey_media,
                 args=(process, desc, play_beep),
+                suppress=False
+            )
+        elif action in ("volume_down", "vol_down", "volume-", "voldown"):
+            step = abs(float(item.get("step", 0.10)))
+            print(f"  • Key [{key}] -> [Volume Down -{int(round(step*100))}%] {desc} ({process})")
+            keyboard.add_hotkey(
+                key,
+                on_hotkey_volume,
+                args=(process, -step, desc, play_beep),
+                suppress=False
+            )
+        elif action in ("volume_up", "vol_up", "volume+", "volup"):
+            step = abs(float(item.get("step", 0.10)))
+            print(f"  • Key [{key}] -> [Volume Up +{int(round(step*100))}%] {desc} ({process})")
+            keyboard.add_hotkey(
+                key,
+                on_hotkey_volume,
+                args=(process, step, desc, play_beep),
+                suppress=False
+            )
+        elif action in ("volume", "volume_change"):
+            step = float(item.get("step", 0.10))
+            direction = f"{'+' if step > 0 else ''}{int(round(step*100))}%"
+            print(f"  • Key [{key}] -> [Volume Change {direction}] {desc} ({process})")
+            keyboard.add_hotkey(
+                key,
+                on_hotkey_volume,
+                args=(process, step, desc, play_beep),
                 suppress=False
             )
         else:
@@ -129,6 +216,7 @@ def main():
 
     print("\n[INFO] SoundMaster is now running in the background.")
     print("[INFO] Press your configured hotkeys at any time (even inside full-screen games).")
+    print("[TIP]  If hotkeys do not respond inside certain games, run SoundMaster as Administrator.")
     print("[INFO] Press Ctrl+C in this window to exit.")
     print("=" * 60)
 

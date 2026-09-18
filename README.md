@@ -31,21 +31,40 @@ Edit `config.json` to map keys to applications and actions:
       "action": "mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Mute/Unmute)"
+    },
+    {
+      "key": "-",
+      "action": "volume_down",
+      "process": "focused",
+      "step": 0.10,
+      "description": "Current Focused Game (Volume Down 10%)"
+    },
+    {
+      "key": "=",
+      "action": "volume_up",
+      "process": "focused",
+      "step": 0.10,
+      "description": "Current Focused Game (Volume Up 10%)"
     }
   ]
 }
 ```
 
 ### Options:
-- `key`: Any key or combination (`"8"`, `"9"`, `"0"`, `"f9"`, `"ctrl+alt+m"`, `"num 1"`, etc.).
+- `key`: Any key or combination (`"-"`, `"="`, `"+"`, `"7"`, `"8"`, `"9"`, `"0"`, `"f9"`, `"ctrl+alt+m"`, `"num 1"`, etc.).
 - `action`:
+  - `"volume_down"` (or `"vol_down"`): Lowers application volume by `step` (default `0.10` / 10%).
+  - `"volume_up"` (or `"vol_up"`): Increases application volume by `step` (default `0.10` / 10%).
+  - `"play_pause_and_mute"` (or `"both"`): Simultaneously toggles media play/pause and mute/unmute.
   - `"play_pause"` (or `"media"`): Toggles play/pause for media (e.g. YouTube playback).
   - `"mute"` (default if omitted): Toggles mute/unmute for the application's audio session.
+- `step`: Optional volume change increment (e.g., `0.10` for 10%, `0.05` for 5%).
 - `process`: 
   - `"focused"` (or `"current"` / `"active"`): Targets whatever game or window is currently active/focused in the foreground!
   - Or a specific `.exe` name (e.g., `brave.exe`, `discord.exe`, `spotify.exe`).
 - `description`: Friendly name for logging.
 - `play_beep_feedback`: If `true`, plays a quick subtle sound cue when you press the hotkey:
+  - **Dynamic pitch tone (400-1000 Hz)**: Volume level percentage feedback
   - **Medium tone (650 Hz)**: Media Play/Pause triggered
   - **Low pitch tone**: Muted
   - **High pitch tone**: Unmuted
@@ -75,3 +94,7 @@ python main.py --list
   ```bash
   pythonw main.py
   ```
+
+> [!TIP]
+> **Hotkeys not working in some games?**  
+> If hotkeys don't trigger when focused inside games with anti-cheats (e.g., Easy Anti-Cheat, BattlEye, Vanguard) or games run with elevated privileges, **run your terminal / SoundMaster as Administrator**. Windows UIPI blocks non-elevated apps from capturing hotkeys over elevated game windows.
