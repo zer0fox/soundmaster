@@ -13,6 +13,10 @@ from audio_controller import (
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
+# Runtime state for dynamic target switching (e.g. key 6 toggles volume between focused game & Brave)
+current_volume_target = "focused"
+current_target_index = 0
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -21,11 +25,17 @@ def load_config():
                 "play_beep_feedback": True
             },
             "hotkeys": [
+                {
+                    "key": "6",
+                    "action": "toggle_volume_target",
+                    "targets": ["focused", "brave.exe"],
+                    "description": "Switch Volume Target (Focused Game <-> Brave)"
+                },
                 {"key": "8", "action": "play_pause", "process": "brave.exe", "description": "Brave Browser Media (Play/Pause)"},
                 {"key": "0", "action": "mute", "process": "brave.exe", "description": "Brave Browser (Mute/Unmute)"},
                 {"key": "9", "action": "mute", "process": "focused", "description": "Current Focused Game/Window (Mute/Unmute)"},
-                {"key": "-", "action": "volume_down", "process": "focused", "description": "Current Focused Game (Volume Down 10%)", "step": 0.10},
-                {"key": "=", "action": "volume_up", "process": "focused", "description": "Current Focused Game (Volume Up 10%)", "step": 0.10}
+                {"key": "-", "action": "volume_down", "process": "focused", "description": "Volume Down 10%", "step": 0.10},
+                {"key": "=", "action": "volume_up", "process": "focused", "description": "Volume Up 10%", "step": 0.10}
             ]
         }
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -82,6 +92,41 @@ def play_volume_feedback(volume_level: float | None):
         pass
 
 
+def play_target_switch_feedback(target: str):
+    """Distinct audio cues when switching between Focused Game and specific App mode."""
+    try:
+        if target.lower() in ("focused", "current", "active", "foreground"):
+            # Switched back to Focused Game mode: 2 descending beeps (750Hz -> 500Hz)
+            winsound.Beep(750, 70)
+            time.sleep(0.03)
+            winsound.Beep(500, 90)
+        else:
+            # Switched to App mode (e.g. Brave): 2 ascending high beeps (500Hz -> 850Hz)
+            winsound.Beep(500, 70)
+            time.sleep(0.03)
+            winsound.Beep(850, 90)
+    except Exception:
+        pass
+
+
+def on_hotkey_toggle_target(targets: list[str], description: str, play_beep: bool):
+    global current_volume_target, current_target_index
+    if not targets:
+        return
+    current_target_index = (current_target_index + 1) % len(targets)
+    current_volume_target = targets[current_target_index]
+
+    if current_volume_target.lower() in ("focused", "current", "active", "foreground"):
+        target_display = "FOCUSED GAME / WINDOW (Default)"
+    else:
+        target_display = current_volume_target.upper()
+
+    print(f"[{time.strftime('%H:%M:%S')}] {description}: Volume Target set to -> [{target_display}]")
+
+    if play_beep:
+        play_target_switch_feedback(current_volume_target)
+
+
 def on_hotkey_mute(process_name: str, description: str, play_beep: bool):
     is_muted, count, resolved_name = toggle_app_mute(process_name)
     if is_muted is None:
@@ -118,7 +163,13 @@ def on_hotkey_both(process_name: str, description: str, play_beep: bool):
 
 
 def on_hotkey_volume(process_name: str, delta: float, description: str, play_beep: bool):
-    new_vol, count, resolved_name = change_app_volume(process_name, delta)
+    # Dynamically resolve target if process is marked as focused/dynamic
+    if process_name.lower() in ("focused", "current", "active", "foreground", "dynamic", "target"):
+        actual_process = current_volume_target
+    else:
+        actual_process = process_name
+
+    new_vol, count, resolved_name = change_app_volume(actual_process, delta)
     if new_vol is None:
         status = "NOT RUNNING / NO AUDIO DETECTED"
     else:
@@ -126,7 +177,8 @@ def on_hotkey_volume(process_name: str, delta: float, description: str, play_bee
         status = f"VOLUME: {percentage}%"
 
     direction = f"{'+' if delta > 0 else ''}{int(round(delta * 100))}%"
-    print(f"[{time.strftime('%H:%M:%S')}] {description} [{resolved_name}] ({direction}): {status} ({count} audio stream(s))")
+    target_tag = f" [Mode: {actual_process}]" if actual_process != "focused" else ""
+    print(f"[{time.strftime('%H:%M:%S')}] {description}{target_tag} [{resolved_name}] ({direction}): {status} ({count} audio stream(s))")
 
     if play_beep:
         play_volume_feedback(new_vol)
@@ -145,12 +197,17 @@ def main():
         return
 
     config = load_config()
-    play_beep = config.get("settings", {}).get("play_beep_feedback", True)
+    settings = config.get("settings", {})
+    global_play_beep = settings.get(
+        "play_beep_feedback",
+        settings.get("play_sound", settings.get("play_beep", settings.get("sound", config.get("play_beep_feedback", config.get("play_sound", True)))))
+    )
     hotkeys = config.get("hotkeys", [])
 
     print("=" * 60)
     print("           SoundMaster - Audio & Media Controller          ")
     print("=" * 60)
+    print(f"Sound feedback: {'ENABLED' if global_play_beep else 'DISABLED'}")
     print(f"Loaded {len(hotkeys)} hotkey binding(s) from config.json:\n")
 
     for item in hotkeys:
@@ -161,7 +218,22 @@ def main():
         if not key:
             continue
 
-        if action in ("both", "play_pause_and_mute", "mute_and_play_pause", "play_pause_mute", "mute_play_pause"):
+        # Allow per-hotkey override for sound feedback if specified, else use global setting
+        play_beep = item.get(
+            "play_beep_feedback",
+            item.get("play_sound", item.get("play_beep", item.get("sound", global_play_beep)))
+        )
+
+        if action in ("toggle_target", "toggle_volume_target", "switch_target", "switch_volume_target"):
+            targets = item.get("targets", ["focused", item.get("process", "brave.exe")])
+            print(f"  • Key [{key}] -> [Toggle Volume Target] {' <-> '.join(targets)} ({desc})")
+            keyboard.add_hotkey(
+                key,
+                on_hotkey_toggle_target,
+                args=(targets, desc, play_beep),
+                suppress=False
+            )
+        elif action in ("both", "play_pause_and_mute", "mute_and_play_pause", "play_pause_mute", "mute_play_pause"):
             print(f"  • Key [{key}] -> [Play/Pause & Mute/Unmute] {desc} ({process})")
             keyboard.add_hotkey(
                 key,

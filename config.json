@@ -4,6 +4,12 @@
   },
   "hotkeys": [
     {
+      "key": "6",
+      "action": "toggle_volume_target",
+      "targets": ["focused", "brave.exe"],
+      "description": "Switch Volume Target (Focused Game <-> Brave)"
+    },
+    {
       "key": "7",
       "action": "play_pause_and_mute",
       "process": "focused",
