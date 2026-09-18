@@ -4,44 +4,44 @@
   },
   "hotkeys": [
     {
-      "key": "6",
+      "key": "num *",
       "action": "toggle_volume_target",
       "targets": ["focused", "brave.exe"],
       "description": "Switch Volume Target (Focused Game <-> Brave)"
     },
     {
-      "key": "7",
+      "key": "num 8",
       "action": "play_pause_and_mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Play/Pause & Mute/Unmute)"
     },
     {
-      "key": "8",
+      "key": "num 7",
       "action": "play_pause",
       "process": "brave.exe",
       "description": "Brave Browser Media (Play/Pause)"
     },
     {
-      "key": "0",
+      "key": "num 0",
       "action": "mute",
       "process": "brave.exe",
       "description": "Brave Browser (Mute/Unmute)"
     },
     {
-      "key": "9",
+      "key": "num 9",
       "action": "mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Mute/Unmute)"
     },
     {
-      "key": "-",
+      "key": "num -",
       "action": "volume_down",
       "process": "focused",
       "step": 0.10,
       "description": "Current Focused Game (Volume Down 10%)"
     },
     {
-      "key": "=",
+      "key": "num +",
       "action": "volume_up",
       "process": "focused",
       "step": 0.10,

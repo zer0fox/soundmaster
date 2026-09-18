@@ -15,48 +15,48 @@ Edit `config.json` to map keys to applications and actions:
   },
   "hotkeys": [
     {
-      "key": "6",
+      "key": "num *",
       "action": "toggle_volume_target",
       "targets": ["focused", "brave.exe"],
       "description": "Switch Volume Target (Focused Game <-> Brave)"
     },
     {
-      "key": "7",
+      "key": "num 8",
       "action": "play_pause_and_mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Play/Pause & Mute/Unmute)"
     },
     {
-      "key": "8",
+      "key": "num 7",
       "action": "play_pause",
       "process": "brave.exe",
       "description": "Brave Browser Media (Play/Pause)"
     },
     {
-      "key": "0",
+      "key": "num 0",
       "action": "mute",
       "process": "brave.exe",
       "description": "Brave Browser (Mute/Unmute)"
     },
     {
-      "key": "9",
+      "key": "num 9",
       "action": "mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Mute/Unmute)"
     },
     {
-      "key": "-",
+      "key": "num -",
       "action": "volume_down",
       "process": "focused",
       "step": 0.10,
-      "description": "Volume Down 10%"
+      "description": "Current Focused Game (Volume Down 10%)"
     },
     {
-      "key": "=",
+      "key": "num +",
       "action": "volume_up",
       "process": "focused",
       "step": 0.10,
-      "description": "Volume Up 10%"
+      "description": "Current Focused Game (Volume Up 10%)"
     }
   ]
 }
@@ -65,7 +65,7 @@ Edit `config.json` to map keys to applications and actions:
 ### Options:
 - `settings`:
   - `play_beep_feedback` (or `play_sound`): `true` (default) or `false`. Globally enables or disables beep sound feedback when pressing any hotkey.
-- `key`: Any key or combination (`"6"`, `"-"`, `"="`, `"7"`, `"8"`, `"9"`, `"0"`, `"f9"`, `"ctrl+alt+m"`, `"num 1"`, etc.).
+- `key`: Any key or combination (`"num 8"`, `"num *"`, `"num +"`, `"num -"`, `"f9"`, `"ctrl+alt+m"`, etc.). Numpad keys (`"num 0"`-`"num 9"`, `"num +"`, `"num -"`, `"num *"`, `"num /"`) are isolated to only trigger via the numpad, leaving your main keyboard numbers and keys unaffected.
 - `action`:
   - `"toggle_volume_target"`: Cycles the active volume target between the list of processes in `targets` (e.g., switches `-` and `=` volume keys between the focused game and Brave).
   - `"volume_down"` (or `"vol_down"`): Lowers application volume by `step` (default `0.10` / 10%).
