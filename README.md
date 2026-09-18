@@ -67,7 +67,7 @@ Edit `config.json` to map keys to applications and actions:
   - `play_beep_feedback` (or `play_sound`): `true` (default) or `false`. Globally enables or disables beep sound feedback when pressing any hotkey.
 - `key`: Any key or combination (`"num 8"`, `"num *"`, `"num +"`, `"num -"`, `"f9"`, `"ctrl+alt+m"`, etc.). Numpad keys (`"num 0"`-`"num 9"`, `"num +"`, `"num -"`, `"num *"`, `"num /"`) are isolated to only trigger via the numpad, leaving your main keyboard numbers and keys unaffected.
 - `action`:
-  - `"toggle_volume_target"`: Cycles the active volume target between the list of processes in `targets` (e.g., switches `-` and `=` volume keys between the focused game and Brave).
+  - `"toggle_volume_target"`: Cycles the active volume target between the list of processes in `targets` (e.g., switches `-` and `+` volume keys between the focused game and Brave).
   - `"volume_down"` (or `"vol_down"`): Lowers application volume by `step` (default `0.10` / 10%).
   - `"volume_up"` (or `"vol_up"`): Increases application volume by `step` (default `0.10` / 10%).
   - `"play_pause_and_mute"` (or `"both"`): Simultaneously toggles media play/pause and mute/unmute.
