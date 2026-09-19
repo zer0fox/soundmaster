@@ -120,19 +120,48 @@ python main.py --list
 
 ---
 
+## 📦 Building Standalone Executables (No Python Required for End Users)
+
+You can build a single self-contained executable that end users can run directly **without having Python installed**. The user only needs **2 files**:
+1. `SoundMaster.exe` (or `SoundMaster` binary / `SoundMasterApp.app` on Mac)
+2. `config.json` next to it
+
+### 🪟 Windows Build
+Run the build script:
+```bat
+build_windows.bat
+```
+or via terminal:
+```powershell
+python -m PyInstaller --noconfirm --clean --onefile --console --name "SoundMaster" --icon "soundmaster.ico" main.py
+```
+Your compiled binary will be in `dist/SoundMaster.exe`.
+
+### 🍎 macOS Build
+On macOS, double-click **`build_mac.command`** (macOS equivalent of a `.bat` file) or run:
+```bash
+chmod +x build_mac.command
+./build_mac.command
+# (or: bash build_mac.bat)
+```
+or via terminal:
+```bash
+python3 -m PyInstaller --noconfirm --clean --onefile --name "SoundMaster" --icon "soundmaster.icns" main.py
+```
+Your compiled binaries will be in `dist/SoundMaster` (CLI) and `dist/SoundMasterApp.app` (App bundle).
+
+---
+
 ## ▶️ Running SoundMaster
 
-- **Standard mode (with log window)**:
-  Double-click `start.bat` or run:
+- **Using the Standalone Executable (Windows)**:
+  Double-click `SoundMaster.exe` with `config.json` in the same directory. No Python required!
+
+- **Using Python**:
   ```bash
   python main.py
   ```
 
-- **Hidden background mode (no console window)**:
-  ```bash
-  pythonw main.py
-  ```
-
 > [!TIP]
 > **Hotkeys not working in some games?**  
-> If hotkeys don't trigger when focused inside games with anti-cheats (e.g., Easy Anti-Cheat, BattlEye, Vanguard) or games run with elevated privileges, **run your terminal / SoundMaster as Administrator**. Windows UIPI blocks non-elevated apps from capturing hotkeys over elevated game windows.
+> If hotkeys don't trigger when focused inside games with anti-cheats (e.g., Easy Anti-Cheat, BattlEye, Vanguard) or games run with elevated privileges, **run SoundMaster as Administrator**. Windows UIPI blocks non-elevated apps from capturing hotkeys over elevated game windows.

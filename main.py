@@ -12,7 +12,12 @@ from audio_controller import (
     list_active_audio_apps
 )
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+if getattr(sys, "frozen", False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 # Runtime state for dynamic target switching (e.g. key num * toggles volume between focused game & Brave)
 current_volume_target = "focused"
