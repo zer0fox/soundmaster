@@ -13,25 +13,25 @@
       "description": "Switch Volume Target (Focused Game <-> Brave)"
     },
     {
-      "key": "num 8",
+      "key": "num 5",
       "action": "play_pause_and_mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Play/Pause & Mute/Unmute)"
     },
     {
-      "key": "num 7",
+      "key": "num 1",
       "action": "play_pause",
       "process": "brave.exe",
       "description": "Brave Browser Media (Play/Pause)"
     },
     {
-      "key": "num 0",
+      "key": "num 2",
       "action": "mute",
       "process": "brave.exe",
       "description": "Brave Browser (Mute/Unmute)"
     },
     {
-      "key": "num 9",
+      "key": "num 3",
       "action": "mute",
       "process": "focused",
       "description": "Current Focused Game/Window (Mute/Unmute)"
