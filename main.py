@@ -46,6 +46,7 @@ NUMPAD_SCAN_CODES = {
 }
 
 numpad_bindings = []
+standard_hotkeys = []
 hook_initialized = False
 
 
@@ -92,7 +93,7 @@ def register_hotkey(key_spec, callback, args=()):
             return
 
     # For standard non-numpad hotkeys, use keyboard.add_hotkey
-    keyboard.add_hotkey(key_spec, callback, args=args, suppress=False)
+    standard_hotkeys.append(keyboard.add_hotkey(key_spec, callback, args=args, suppress=False))
 
 
 def on_keyboard_event(event):
@@ -139,6 +140,26 @@ def load_config():
 
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def save_config(config):
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+
+
+def clear_hotkeys():
+    numpad_bindings.clear()
+    # keyboard.unhook_all_hotkeys() crashes if no hotkey was ever added, so remove ours one by one
+    while standard_hotkeys:
+        keyboard.remove_hotkey(standard_hotkeys.pop())
+
+
+def get_global_play_beep(config):
+    settings = config.get("settings", {})
+    return settings.get(
+        "play_beep_feedback",
+        settings.get("play_sound", settings.get("play_beep", settings.get("sound", config.get("play_beep_feedback", config.get("play_sound", True)))))
+    )
 
 
 def play_mute_feedback(muted: bool | None):
@@ -279,33 +300,9 @@ def on_hotkey_volume(process_name: str, delta: float, description: str, play_bee
         play_volume_feedback(new_vol)
 
 
-def main():
-    if "--list" in sys.argv or "-l" in sys.argv:
-        print("Scanning active audio applications...")
-        apps = list_active_audio_apps()
-        if apps:
-            print("Found active audio processes:")
-            for app in apps:
-                print(f"  - {app}")
-        else:
-            print("No active audio processes currently playing/registered.")
-        return
-
-    config = load_config()
-    settings = config.get("settings", {})
-    global_play_beep = settings.get(
-        "play_beep_feedback",
-        settings.get("play_sound", settings.get("play_beep", settings.get("sound", config.get("play_beep_feedback", config.get("play_sound", True)))))
-    )
-    hotkeys = config.get("hotkeys", [])
-
-    print("=" * 60)
-    print("           SoundMaster - Audio & Media Controller          ")
-    print("=" * 60)
-    print(f"Sound feedback: {'ENABLED' if global_play_beep else 'DISABLED'}")
-    print(f"Loaded {len(hotkeys)} hotkey binding(s) from config.json:\n")
-
-    for item in hotkeys:
+def register_all_hotkeys(config):
+    global_play_beep = get_global_play_beep(config)
+    for item in config.get("hotkeys", []):
         key = item.get("key")
         action = item.get("action", "mute").lower().strip()
         process = item.get("process", "brave.exe")
@@ -319,60 +316,66 @@ def main():
             item.get("play_sound", item.get("play_beep", item.get("sound", global_play_beep)))
         )
 
-        if action in ("toggle_target", "toggle_volume_target", "switch_target", "switch_volume_target"):
-            targets = item.get("targets", ["focused", item.get("process", "brave.exe")])
-            print(f"  • Key [{key}] -> [Toggle Volume Target] {' <-> '.join(targets)} ({desc})")
-            register_hotkey(
-                key,
-                on_hotkey_toggle_target,
-                args=(targets, desc, play_beep)
-            )
-        elif action in ("both", "play_pause_and_mute", "mute_and_play_pause", "play_pause_mute", "mute_play_pause"):
-            print(f"  • Key [{key}] -> [Play/Pause & Mute/Unmute] {desc} ({process})")
-            register_hotkey(
-                key,
-                on_hotkey_both,
-                args=(process, desc, play_beep)
-            )
-        elif action in ("play_pause", "media", "play_pause_media", "media_play_pause"):
-            print(f"  • Key [{key}] -> [Play/Pause] {desc} ({process})")
-            register_hotkey(
-                key,
-                on_hotkey_media,
-                args=(process, desc, play_beep)
-            )
-        elif action in ("volume_down", "vol_down", "volume-", "voldown"):
-            step = abs(float(item.get("step", 0.10)))
-            print(f"  • Key [{key}] -> [Volume Down -{int(round(step*100))}%] {desc} ({process})")
-            register_hotkey(
-                key,
-                on_hotkey_volume,
-                args=(process, -step, desc, play_beep)
-            )
-        elif action in ("volume_up", "vol_up", "volume+", "volup"):
-            step = abs(float(item.get("step", 0.10)))
-            print(f"  • Key [{key}] -> [Volume Up +{int(round(step*100))}%] {desc} ({process})")
-            register_hotkey(
-                key,
-                on_hotkey_volume,
-                args=(process, step, desc, play_beep)
-            )
-        elif action in ("volume", "volume_change"):
-            step = float(item.get("step", 0.10))
-            direction = f"{'+' if step > 0 else ''}{int(round(step*100))}%"
-            print(f"  • Key [{key}] -> [Volume Change {direction}] {desc} ({process})")
-            register_hotkey(
-                key,
-                on_hotkey_volume,
-                args=(process, step, desc, play_beep)
-            )
+        try:
+            if action in ("toggle_target", "toggle_volume_target", "switch_target", "switch_volume_target"):
+                targets = item.get("targets", ["focused", item.get("process", "brave.exe")])
+                print(f"  • Key [{key}] -> [Toggle Volume Target] {' <-> '.join(targets)} ({desc})")
+                register_hotkey(key, on_hotkey_toggle_target, args=(targets, desc, play_beep))
+            elif action in ("both", "play_pause_and_mute", "mute_and_play_pause", "play_pause_mute", "mute_play_pause"):
+                print(f"  • Key [{key}] -> [Play/Pause & Mute/Unmute] {desc} ({process})")
+                register_hotkey(key, on_hotkey_both, args=(process, desc, play_beep))
+            elif action in ("play_pause", "media", "play_pause_media", "media_play_pause"):
+                print(f"  • Key [{key}] -> [Play/Pause] {desc} ({process})")
+                register_hotkey(key, on_hotkey_media, args=(process, desc, play_beep))
+            elif action in ("volume_down", "vol_down", "volume-", "voldown"):
+                step = abs(float(item.get("step", 0.10)))
+                print(f"  • Key [{key}] -> [Volume Down -{int(round(step*100))}%] {desc} ({process})")
+                register_hotkey(key, on_hotkey_volume, args=(process, -step, desc, play_beep))
+            elif action in ("volume_up", "vol_up", "volume+", "volup"):
+                step = abs(float(item.get("step", 0.10)))
+                print(f"  • Key [{key}] -> [Volume Up +{int(round(step*100))}%] {desc} ({process})")
+                register_hotkey(key, on_hotkey_volume, args=(process, step, desc, play_beep))
+            elif action in ("volume", "volume_change"):
+                step = float(item.get("step", 0.10))
+                direction = f"{'+' if step > 0 else ''}{int(round(step*100))}%"
+                print(f"  • Key [{key}] -> [Volume Change {direction}] {desc} ({process})")
+                register_hotkey(key, on_hotkey_volume, args=(process, step, desc, play_beep))
+            else:
+                print(f"  • Key [{key}] -> [Mute/Unmute] {desc} ({process})")
+                register_hotkey(key, on_hotkey_mute, args=(process, desc, play_beep))
+        except Exception as e:
+            print(f"  ! Failed to bind key [{key}]: {e}")
+
+
+def main():
+    if "--list" in sys.argv or "-l" in sys.argv:
+        print("Scanning active audio applications...")
+        apps = list_active_audio_apps()
+        if apps:
+            print("Found active audio processes:")
+            for app in apps:
+                print(f"  - {app}")
         else:
-            print(f"  • Key [{key}] -> [Mute/Unmute] {desc} ({process})")
-            register_hotkey(
-                key,
-                on_hotkey_mute,
-                args=(process, desc, play_beep)
-            )
+            print("No active audio processes currently playing/registered.")
+        return
+
+    if "--gui" in sys.argv or "-g" in sys.argv:
+        # Make `import main` in gui.py reuse this module instead of loading a second copy
+        sys.modules.setdefault("main", sys.modules[__name__])
+        from gui import run_gui
+        run_gui()
+        return
+
+    config = load_config()
+    hotkeys = config.get("hotkeys", [])
+
+    print("=" * 60)
+    print("           SoundMaster - Audio & Media Controller          ")
+    print("=" * 60)
+    print(f"Sound feedback: {'ENABLED' if get_global_play_beep(config) else 'DISABLED'}")
+    print(f"Loaded {len(hotkeys)} hotkey binding(s) from config.json:\n")
+
+    register_all_hotkeys(config)
 
     print("\n[INFO] SoundMaster is now running in the background.")
     print("[INFO] Press your configured hotkeys at any time (even inside full-screen games).")
@@ -381,7 +384,6 @@ def main():
     print("=" * 60)
 
     try:
-        # Keep running
         keyboard.wait()
     except KeyboardInterrupt:
         print("\nExiting SoundMaster.")
